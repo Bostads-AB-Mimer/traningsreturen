@@ -1,0 +1,82 @@
+{
+  "realm": "traningsreturen",
+  "enabled": true,
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "employee", "description": "Registers workouts and applies for leave" },
+      { "name": "manager", "description": "Attests leave requests for their team" },
+      { "name": "admin", "description": "Full insight and correction rights" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "traningsreturen-app",
+      "name": "Träningsreturen frontend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "rootUrl": "${TRANINGSRETUREN_APP_URL:http://localhost:5173}",
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:8081/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "sara.lindqvist",
+      "enabled": true,
+      "firstName": "Sara",
+      "lastName": "Lindqvist",
+      "email": "sara.lindqvist@mimer.example",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo123", "temporary": false }],
+      "realmRoles": ["employee"]
+    },
+    {
+      "username": "anna.berg",
+      "enabled": true,
+      "firstName": "Anna",
+      "lastName": "Berg",
+      "email": "anna.berg@mimer.example",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo123", "temporary": false }],
+      "realmRoles": ["employee", "manager"]
+    },
+    {
+      "username": "peter.ekstrom",
+      "enabled": true,
+      "firstName": "Peter",
+      "lastName": "Ekström",
+      "email": "peter.ekstrom@mimer.example",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo123", "temporary": false }],
+      "realmRoles": ["employee", "admin"]
+    },
+    {
+      "username": "maria.holm",
+      "enabled": true,
+      "firstName": "Maria",
+      "lastName": "Holm",
+      "email": "maria.holm@mimer.example",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo123", "temporary": false }],
+      "realmRoles": ["employee", "manager"]
+    },
+    {
+      "username": "daniel.strom",
+      "enabled": true,
+      "firstName": "Daniel",
+      "lastName": "Ström",
+      "email": "daniel.strom@mimer.example",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo123", "temporary": false }],
+      "realmRoles": ["employee", "manager"]
+    }
+  ]
+}

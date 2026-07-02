@@ -1,0 +1,23 @@
+{
+  "name": "traningsreturen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Träningsreturen – employees register pulse-raising workouts and get 20% of the time back as leave. Bostads AB Mimer.",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "prettier": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml,css,html}\"",
+    "db:migrate": "pnpm --filter @traningsreturen/backend run db:migrate",
+    "db:seed": "pnpm --filter @traningsreturen/backend run db:seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}
