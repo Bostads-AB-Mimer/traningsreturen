@@ -75,6 +75,30 @@ I demoläge (`AUTH_MODE=demo`) finns prototypens rollväxlare kvar uppe till
 höger och ingen Keycloak-inloggning krävs. I `oidc`-läge visas växlaren bara
 för användare med flera roller.
 
+## Koppla mot Mimers befintliga Keycloak (AD)
+
+Appen kan använda den delade instansen `https://auth.dev.mimer.nu/realms/onecore`
+(AD-federerad via Microsoft-broker) i stället för compose-instansen:
+
+1. Klienten `traningsreturen-app` ska finnas i realmen (public, standard flow,
+   PKCE S256, redirect `http://localhost:5173/*`, web origins `+`).
+2. Backend: `AUTH_MODE=oidc`, `OIDC_ISSUER=https://auth.dev.mimer.nu/realms/onecore`.
+3. Frontend: kopiera `frontend/.env.template` till `frontend/.env`.
+4. Roller läses både ur realm-roller och **klientroller**
+   (`resource_access.traningsreturen-app.roles`) — skapa `employee`, `manager`,
+   `admin` som klientroller på klienten och mappa dem från AD-grupper.
+5. `AUTO_PROVISION_USERS=true` skapar app-användaren automatiskt vid första
+   AD-inloggningen (namn ur token). Chef→medarbetar-relationen sätts av admin
+   i efterhand — utan chef kan man registrera pass men ledighetsansökningar
+   hamnar hos ingen attesterare.
+6. **Titel och avdelning synkas från AD** om klienten mappar användarattributen
+   till token-claims: lägg till två _User Attribute_-mappers på klienten
+   (Client scopes → `traningsreturen-app-dedicated` → Add mapper → By
+   configuration → User Attribute) — `jobTitle` → claim `jobTitle` och
+   `officeLocation` → claim `officeLocation`, båda med "Add to access token"
+   på. Backend läser claimen vid varje inloggning och håller namn, titel och
+   avdelning uppdaterade; tomma claims skriver aldrig över befintliga värden.
+
 ## Miljövariabler
 
 Se [.env.template](.env.template). De viktigaste:

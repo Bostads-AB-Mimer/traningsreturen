@@ -205,7 +205,7 @@ function AdminSection({
 }
 
 export function App() {
-  const { config, me, availableRoles, role, setRole } = useAuth()
+  const { config, me, availableRoles, role, setRole, logout } = useAuth()
   const [employeeTab, setEmployeeTab] = useState('hem')
   const [managerTab, setManagerTab] = useState('team')
   const [adminTab, setAdminTab] = useState('stat')
@@ -351,6 +351,25 @@ export function App() {
               <div style={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.2 }}>{me.name}</div>
               <div style={{ fontSize: 12, color: '#9A8694', lineHeight: 1.2 }}>{me.title}</div>
             </div>
+            {logout && (
+              <button
+                onClick={logout}
+                className="hov-rose"
+                style={{
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: 'none',
+                  color: '#9A8694',
+                  fontFamily: 'inherit',
+                  fontWeight: 700,
+                  fontSize: 12.5,
+                  padding: '7px 10px',
+                  borderRadius: 9,
+                }}
+              >
+                Logga ut
+              </button>
+            )}
           </div>
         </div>
       </header>

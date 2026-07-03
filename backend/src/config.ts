@@ -35,7 +35,11 @@ export interface AppConfig {
     issuer: string
     jwksUri: string
     audience: string | null
+    /** Client id used to read app-specific roles from resource_access. */
+    clientId: string
   }
+  /** Create app users automatically on first login (name from token claims). */
+  autoProvisionUsers: boolean
   db: {
     host: string
     port: number
@@ -63,7 +67,9 @@ export function loadConfig(): AppConfig {
       issuer,
       jwksUri: optional('OIDC_JWKS_URI', `${issuer}/protocol/openid-connect/certs`),
       audience: process.env.OIDC_AUDIENCE ?? null,
+      clientId: optional('OIDC_CLIENT_ID', 'traningsreturen-app'),
     },
+    autoProvisionUsers: optionalBool('AUTO_PROVISION_USERS', false),
     db: {
       host: optional('DB_HOST', 'localhost'),
       port: optionalInt('DB_PORT', 1433),
