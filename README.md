@@ -88,9 +88,7 @@ Appen kan använda den delade instansen `https://auth.dev.mimer.nu/realms/onecor
    (`resource_access.traningsreturen-app.roles`) — skapa `employee`, `manager`,
    `admin` som klientroller på klienten och mappa dem från AD-grupper.
 5. `AUTO_PROVISION_USERS=true` skapar app-användaren automatiskt vid första
-   AD-inloggningen (namn ur token). Chef→medarbetar-relationen sätts av admin
-   i efterhand — utan chef kan man registrera pass men ledighetsansökningar
-   hamnar hos ingen attesterare.
+   AD-inloggningen (namn ur token).
 6. **Titel och avdelning synkas från AD** om klienten mappar användarattributen
    till token-claims: lägg till två _User Attribute_-mappers på klienten
    (Client scopes → `traningsreturen-app-dedicated` → Add mapper → By
@@ -98,6 +96,13 @@ Appen kan använda den delade instansen `https://auth.dev.mimer.nu/realms/onecor
    `officeLocation` → claim `officeLocation`, båda med "Add to access token"
    på. Backend läser claimen vid varje inloggning och håller namn, titel och
    avdelning uppdaterade; tomma claims skriver aldrig över befintliga värden.
+7. **Chefsrelationen synkas från AD** via användarattributet `managerId`
+   (chefens _Keycloak-id_, hämtat ur Graph-relationen `manager` av
+   attributsynken). Mappa det till claim `managerId` på samma sätt. Vid varje
+   inloggning slås chefen upp mot `users.keycloak_id` (tokenens `sub`) och
+   `manager_id` sätts; chefen flaggas samtidigt som delegeringsbar. Har chefen
+   inte loggat in ännu lämnas relationen tom och läker automatiskt vid en
+   senare inloggning.
 
 ## Miljövariabler
 

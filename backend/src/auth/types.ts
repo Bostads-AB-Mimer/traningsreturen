@@ -3,6 +3,7 @@ export type Role = 'employee' | 'manager' | 'admin'
 export interface UserRow {
   id: string
   keycloak_username: string | null
+  keycloak_id: string | null
   name: string
   department: string
   title: string

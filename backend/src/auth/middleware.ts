@@ -23,8 +23,36 @@ async function findUserByUsername(username: string): Promise<UserRow | undefined
 
 interface AdProfile {
   displayName: string
+  keycloakId: string
   title: string | null
   department: string | null
+  /** The manager's Keycloak user id (AD-synced `managerId` attribute). */
+  managerKeycloakId: string | null
+}
+
+/**
+ * Resolves the AD-synced manager (a Keycloak user id) to an app user id.
+ * Returns null when the manager hasn't logged in / been provisioned yet —
+ * the relation self-heals on a later login. Marks the manager as such so
+ * they show up as a delegation option.
+ */
+async function resolveManagerId(profile: AdProfile, selfId: string): Promise<string | null> {
+  if (!profile.managerKeycloakId || profile.managerKeycloakId === profile.keycloakId) return null
+  try {
+    const manager = await db<UserRow>('users')
+      .where({ keycloak_id: profile.managerKeycloakId })
+      .first()
+    if (!manager || manager.id === selfId) return null
+    if (!manager.is_manager) {
+      await db('users')
+        .where({ id: manager.id })
+        .update({ is_manager: true, updated_at: db.fn.now() })
+    }
+    return manager.id
+  } catch (err) {
+    logger.error({ err }, 'auth.resolveManagerId')
+    throw err
+  }
 }
 
 /**
@@ -35,16 +63,18 @@ interface AdProfile {
 async function provisionUser(username: string, profile: AdProfile): Promise<UserRow | undefined> {
   try {
     const id = randomUUID()
+    const managerId = await resolveManagerId(profile, id)
     await db.transaction(async (trx) => {
       await trx('users').insert({
         id,
         keycloak_username: username,
+        keycloak_id: profile.keycloakId || null,
         name: profile.displayName,
         department: profile.department ?? '',
         title: profile.title ?? '',
         active: true,
         is_manager: false,
-        manager_id: null,
+        manager_id: managerId,
       })
       await writeAudit(trx, {
         actorUserId: id,
@@ -64,16 +94,23 @@ async function provisionUser(username: string, profile: AdProfile): Promise<User
 }
 
 /**
- * Keeps name/title/department in sync with AD on every login — the token is
- * the source of truth for those fields; empty claims never overwrite data.
+ * Keeps name/title/department/manager in sync with AD on every login — the
+ * token is the source of truth; empty claims never overwrite data.
  */
 async function syncUserProfile(user: UserRow, profile: AdProfile): Promise<UserRow> {
-  const patch: Partial<Pick<UserRow, 'name' | 'title' | 'department'>> = {}
+  const patch: Partial<
+    Pick<UserRow, 'name' | 'title' | 'department' | 'keycloak_id' | 'manager_id'>
+  > = {}
   if (profile.displayName && profile.displayName !== user.name) patch.name = profile.displayName
   if (profile.title && profile.title !== user.title) patch.title = profile.title
   if (profile.department && profile.department !== user.department) {
     patch.department = profile.department
   }
+  if (profile.keycloakId && profile.keycloakId !== user.keycloak_id) {
+    patch.keycloak_id = profile.keycloakId
+  }
+  const managerId = await resolveManagerId(profile, user.id)
+  if (managerId && managerId !== user.manager_id) patch.manager_id = managerId
   if (Object.keys(patch).length === 0) return user
   try {
     await db('users')
@@ -110,8 +147,10 @@ export function authMiddleware(): Middleware {
         roles = verified.roles
         adProfile = {
           displayName: verified.displayName,
+          keycloakId: verified.keycloakId,
           title: verified.title,
           department: verified.department,
+          managerKeycloakId: verified.managerKeycloakId,
         }
       } catch (err) {
         logger.warn({ err }, 'auth.verifyAccessToken')

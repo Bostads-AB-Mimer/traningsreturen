@@ -13,12 +13,16 @@ function getJwks() {
 
 export interface VerifiedToken {
   username: string
+  /** Keycloak user id (the `sub` claim). */
+  keycloakId: string
   roles: Role[]
   /** Display name from token claims — used when auto-provisioning users. */
   displayName: string
   /** AD-synced attributes, present when the client maps them into the token. */
   title: string | null
   department: string | null
+  /** The manager's Keycloak user id (AD-synced `managerId` attribute). */
+  managerKeycloakId: string | null
 }
 
 /** Validates the Keycloak-issued JWT (signature, issuer, expiry) on every call. */
@@ -33,10 +37,12 @@ export async function verifyAccessToken(token: string): Promise<VerifiedToken> {
   }
   return {
     username,
+    keycloakId: typeof payload.sub === 'string' ? payload.sub : '',
     roles: extractRoles(payload, config.oidc.clientId),
     displayName: extractDisplayName(payload, username),
     title: extractClaim(payload, ['jobTitle', 'job_title', 'title']),
     department: extractClaim(payload, ['officeLocation', 'office_location', 'department']),
+    managerKeycloakId: extractClaim(payload, ['managerId', 'manager_id']),
   }
 }
 
