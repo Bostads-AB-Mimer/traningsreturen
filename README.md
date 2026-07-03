@@ -103,18 +103,37 @@ Appen kan använda den delade instansen `https://auth.dev.mimer.nu/realms/onecor
 
 Se [.env.template](.env.template). De viktigaste:
 
-| Variabel                          | Beskrivning                               | Default |
-| --------------------------------- | ----------------------------------------- | ------- |
-| `DB_HOST/PORT/USER/PASSWORD/NAME` | SQL Server-anslutning                     | –       |
-| `AUTH_MODE`                       | `oidc` (produktion) eller `demo`          | `oidc`  |
-| `OIDC_ISSUER`                     | Keycloak realm-URL                        | –       |
-| `OIDC_JWKS_URI`                   | JWKS-endpoint (default härledd ur issuer) | –       |
-| `FEATURE_EXPIRY`                  | Förfallo-konceptet på/av                  | `false` |
-| `RULES_RETURN_SHARE_PERCENT`      | Andel av träningstid som blir ledighet    | `20`    |
-| `RULES_WEEKLY_CAP_MINUTES`        | Veckotak i minuter                        | `36`    |
-| `RULES_MAX_BACKDATE_DAYS`         | Max antal dagar bakåt för registrering    | `60`    |
-| `SEED_DEMO_DATA`                  | Seed:a demodata vid backend-start         | `false` |
-| `CORS_ORIGIN`                     | Tillåten frontend-origin                  | –       |
+| Variabel                          | Beskrivning                                                           | Default               |
+| --------------------------------- | --------------------------------------------------------------------- | --------------------- |
+| `DB_HOST/PORT/USER/PASSWORD/NAME` | SQL Server-anslutning                                                 | –                     |
+| `AUTH_MODE`                       | `oidc` (produktion) eller `demo`                                      | `oidc`                |
+| `OIDC_ISSUER`                     | Keycloak realm-URL                                                    | –                     |
+| `OIDC_JWKS_URI`                   | JWKS-endpoint (default härledd ur issuer)                             | –                     |
+| `FEATURE_EXPIRY`                  | Förfallo-konceptet på/av                                              | `false`               |
+| `RULES_RETURN_SHARE_PERCENT`      | Andel av träningstid som blir ledighet                                | `20`                  |
+| `RULES_WEEKLY_CAP_MINUTES`        | Veckotak i minuter                                                    | `36`                  |
+| `RULES_MAX_BACKDATE_DAYS`         | Max antal dagar bakåt för registrering                                | `60`                  |
+| `SEED_DEMO_DATA`                  | Seed:a demodata vid backend-start                                     | `false`               |
+| `CORS_ORIGIN`                     | Tillåten frontend-origin                                              | –                     |
+| `OIDC_CLIENT_ID`                  | Klient-id; även källa för klientroller (`resource_access.<id>.roles`) | `traningsreturen-app` |
+| `AUTO_PROVISION_USERS`            | Skapa app-användare automatiskt vid första AD-inloggning              | `false`               |
+
+### Variabler som bara gäller den lokala compose-Keycloaken
+
+Följande läses enbart av `docker-compose.yml` och rör containern
+`traningsreturen-keycloak-1` — de ignoreras helt när appen pekar mot den
+delade instansen (`auth.dev.mimer.nu`), och används aldrig av `pnpm run dev`:
+
+| Variabel                                     | Beskrivning                                                                   |
+| -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` | Bootstrap-admin för den lokala containerns admin-konsol (localhost:8080)      |
+| `PUBLIC_KEYCLOAK_URL`                        | Build-argument till frontend-imagen: Keycloak-URL:en webbläsaren skickas till |
+
+Vilken Keycloak som faktiskt används styrs av `OIDC_ISSUER` (backend) och
+`VITE_KEYCLOAK_URL`/`VITE_KEYCLOAK_REALM` (frontend, se
+[frontend/.env.template](frontend/.env.template)). Det lokala spåret —
+containern, realm-importen i `deploy/keycloak/` och demokontona — finns kvar
+som fristående alternativ för den som saknar åtkomst till dev-miljön.
 
 ## Test & verifiering
 
