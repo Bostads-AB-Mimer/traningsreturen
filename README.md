@@ -68,7 +68,7 @@ docker compose up mssql keycloak      # databas + Keycloak
 cp backend/.env.template backend/.env # AUTH_MODE=demo som standard
 pnpm run db:migrate
 pnpm run db:seed
-pnpm run dev                          # backend :4000 + frontend :5173
+pnpm run dev                          # backend :4000 + frontend :8081
 ```
 
 I demoläge (`AUTH_MODE=demo`) finns prototypens rollväxlare kvar uppe till
@@ -81,7 +81,7 @@ Appen kan använda den delade instansen `https://auth.dev.mimer.nu/realms/onecor
 (AD-federerad via Microsoft-broker) i stället för compose-instansen:
 
 1. Klienten `traningsreturen-app` ska finnas i realmen (public, standard flow,
-   PKCE S256, redirect `http://localhost:5173/*`, web origins `+`).
+   PKCE S256, redirect `http://localhost:8081/*`, web origins `+`).
 2. Backend: `AUTH_MODE=oidc`, `OIDC_ISSUER=https://auth.dev.mimer.nu/realms/onecore`.
 3. Frontend: kopiera `frontend/.env.template` till `frontend/.env`.
 4. Roller läses både ur realm-roller och **klientroller**
@@ -133,6 +133,12 @@ delade instansen (`auth.dev.mimer.nu`), och används aldrig av `pnpm run dev`:
 | -------------------------------------------- | ----------------------------------------------------------------------------- |
 | `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` | Bootstrap-admin för den lokala containerns admin-konsol (localhost:8080)      |
 | `PUBLIC_KEYCLOAK_URL`                        | Build-argument till frontend-imagen: Keycloak-URL:en webbläsaren skickas till |
+| `PUBLIC_KEYCLOAK_REALM`                      | Build-argument till frontend-imagen: realm (default `traningsreturen`)        |
+
+Vilken Keycloak Docker-stacken använder väljs i `.env` — se de två blocken A
+(lokal container) och B (Mimers delade) i [.env.template](.env.template).
+Byt hela blocket, sätt `CORS_ORIGIN=http://localhost:8081` och kör
+`docker compose up -d --build` (frontend-imagen måste byggas om).
 
 Vilken Keycloak som faktiskt används styrs av `OIDC_ISSUER` (backend) och
 `VITE_KEYCLOAK_URL`/`VITE_KEYCLOAK_REALM` (frontend, se

@@ -94,7 +94,7 @@ export function loadConfig(): AppConfig {
         DEFAULT_RULES_CONFIG.expiryWarningMonths,
       ),
     },
-    corsOrigin: optional('CORS_ORIGIN', 'http://localhost:5173'),
+    corsOrigin: optional('CORS_ORIGIN', 'http://localhost:8081'),
   }
 }
 

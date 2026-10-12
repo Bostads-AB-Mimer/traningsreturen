@@ -39,9 +39,12 @@ services:
       PORT: '4000'
       AUTH_MODE: ${AUTH_MODE:-oidc}
       # Issuer must match what browsers see in the token (public Keycloak URL);
-      # JWKS is fetched over the internal compose network.
+      # JWKS is fetched over the internal compose network by default. When
+      # pointing at an external Keycloak, set OIDC_JWKS_URI to its certs URL.
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/traningsreturen}
       OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://keycloak:8080/realms/traningsreturen/protocol/openid-connect/certs}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-traningsreturen-app}
+      AUTO_PROVISION_USERS: ${AUTO_PROVISION_USERS:-false}
       DB_HOST: mssql
       DB_PORT: '1433'
       DB_USER: sa
@@ -62,8 +65,8 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_KEYCLOAK_URL: ${PUBLIC_KEYCLOAK_URL:-http://localhost:8080}
-        VITE_KEYCLOAK_REALM: traningsreturen
-        VITE_KEYCLOAK_CLIENT_ID: traningsreturen-app
+        VITE_KEYCLOAK_REALM: ${PUBLIC_KEYCLOAK_REALM:-traningsreturen}
+        VITE_KEYCLOAK_CLIENT_ID: ${OIDC_CLIENT_ID:-traningsreturen-app}
     depends_on:
       - backend
     ports:

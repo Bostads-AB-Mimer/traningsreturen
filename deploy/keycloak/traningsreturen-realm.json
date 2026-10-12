@@ -18,7 +18,7 @@
       "protocol": "openid-connect",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "rootUrl": "${TRANINGSRETUREN_APP_URL:http://localhost:5173}",
+      "rootUrl": "${TRANINGSRETUREN_APP_URL:http://localhost:8081}",
       "redirectUris": ["http://localhost:5173/*", "http://localhost:8081/*"],
       "webOrigins": ["+"],
       "attributes": {
