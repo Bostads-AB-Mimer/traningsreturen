@@ -1,11 +1,12 @@
-# First test deployment on Portainer (pubdoc1): demo auth, no Keycloak.
-# keycloak-js needs HTTPS (or localhost) for PKCE, so OIDC login waits until
-# the server has a domain + TLS. Demo mode trusts the x-demo-username header,
-# so only run this on an internal network with demo data.
+# Portainer deployment on pubdoc1: HTTPS on :8443, login via Mimer's shared
+# Keycloak (auth.dev.mimer.nu, realm onecore).
+#
+# Before the first deploy, create the Docker volume traningsreturen-certs and
+# put the TLS cert chain (fullchain.pem) and unencrypted key (privkey.pem) in
+# it. The cert never lives in Git.
 #
 # Portainer stack environment variables:
 #   DB_PASSWORD  (required) SQL Server sa password, min 8 chars incl. upper/lower/digit
-#   APP_PORT     (optional) host port for the app, default 8081
 services:
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -35,14 +36,19 @@ services:
     restart: unless-stopped
     environment:
       PORT: '4000'
-      AUTH_MODE: demo
+      AUTH_MODE: oidc
+      OIDC_ISSUER: https://auth.dev.mimer.nu/realms/onecore
+      OIDC_JWKS_URI: https://auth.dev.mimer.nu/realms/onecore/protocol/openid-connect/certs
+      OIDC_CLIENT_ID: traningsreturen-app
+      AUTO_PROVISION_USERS: 'true'
       DB_HOST: mssql
       DB_PORT: '1433'
       DB_USER: sa
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: traningsreturen
       FEATURE_EXPIRY: 'false'
-      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      SEED_DEMO_DATA: 'false'
+      CORS_ORIGIN: https://pubdoc1.mimer.nu:8443
     depends_on:
       mssql:
         condition: service_healthy
@@ -51,12 +57,23 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        NGINX_CONF: deploy/nginx.tls.conf
+        VITE_KEYCLOAK_URL: https://auth.dev.mimer.nu
+        VITE_KEYCLOAK_REALM: onecore
+        VITE_KEYCLOAK_CLIENT_ID: traningsreturen-app
     pull_policy: build
     restart: unless-stopped
     depends_on:
       - backend
+    volumes:
+      - traningsreturen-certs:/etc/nginx/certs:ro
     ports:
-      - '${APP_PORT:-8081}:80'
+      # 8443 must match the redirect in deploy/nginx.tls.conf.
+      - '8443:443'
+      - '8081:80'
 
 volumes:
   mssql-data:
+  traningsreturen-certs:
+    external: true

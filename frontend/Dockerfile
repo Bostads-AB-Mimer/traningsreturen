@@ -16,6 +16,8 @@ COPY frontend frontend
 RUN pnpm --filter @traningsreturen/frontend run build
 
 FROM nginx:1.27-alpine
-COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+# The Portainer stack swaps in deploy/nginx.tls.conf.
+ARG NGINX_CONF=deploy/nginx.conf
+COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 EXPOSE 80
