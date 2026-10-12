@@ -31,6 +31,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    pull_policy: build
     restart: unless-stopped
     environment:
       PORT: '4000'
@@ -50,6 +51,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       - backend
