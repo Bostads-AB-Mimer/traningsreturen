@@ -1,0 +1,60 @@
+# First test deployment on Portainer (pubdoc1): demo auth, no Keycloak.
+# keycloak-js needs HTTPS (or localhost) for PKCE, so OIDC login waits until
+# the server has a domain + TLS. Demo mode trusts the x-demo-username header,
+# so only run this on an internal network with demo data.
+#
+# Portainer stack environment variables:
+#   DB_PASSWORD  (required) SQL Server sa password, min 8 chars incl. upper/lower/digit
+#   APP_PORT     (optional) host port for the app, default 8081
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MSSQL_PID: Express
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: '4000'
+      AUTH_MODE: demo
+      DB_HOST: mssql
+      DB_PORT: '1433'
+      DB_USER: sa
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: traningsreturen
+      FEATURE_EXPIRY: 'false'
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    depends_on:
+      mssql:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '${APP_PORT:-8081}:80'
+
+volumes:
+  mssql-data:
