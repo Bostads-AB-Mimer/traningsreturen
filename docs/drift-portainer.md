@@ -220,7 +220,7 @@ tabellerna igen vid nästa start.
 | HTTP 502 | Backend startar fortfarande eller har kraschat. Se loggen för backend |
 | Keycloak visar "Invalid redirect uri" | Adressen saknas på klienten i Keycloak |
 | Inloggning lyckas men API-anrop ger 401 | Fel issuer/realm, eller frontend byggd mot en annan Keycloak än den backend validerar mot |
-| API-anrop ger 401 efter ca 5 s, loggen visar `JWKSTimeout` | Backend når inte Keycloak. Backend använder Mimers interna DNS (`DNS_1`/`DNS_2`, standard 172.31.20.151/153), eftersom pubdoc1:s egen DNS ger den publika adressen till `auth.mimer.nu` och den inte går att nå inifrån. Testa i backend-containern: `nslookup auth.mimer.nu` ska ge 192.168.1.65–67 |
+| API-anrop ger 401 efter ca 5 s, loggen visar `JWKSTimeout` | Backend når inte Keycloak. pubdoc1 får den publika adressen till `auth.mimer.nu`, som inte går att nå inifrån, och Mimers interna DNS går inte att nå från pubdoc1. Därför pekar compose-filen `auth.mimer.nu` på 192.168.1.65 (`extra_hosts`, variabeln `AUTH_MIMER_NU_IP`). Om Keycloaks interna adress ändras måste variabeln ändras. Testa i backend-containern: `wget -qO- https://auth.mimer.nu/realms/onecore/protocol/openid-connect/certs` |
 | "Failed to fetch" direkt efter inloggning, `/api/me` anropas aldrig | Keycloak-klienten saknar appens adress i **Web origins**, så webbläsaren får inte läsa tokensvaret (CORS). Lägg till t.ex. `https://traningsreturen.mimer.nu` |
 | Backend startar om hela tiden, loggen visar `db.migrate` | Kommer inte åt SQL-servern: fel lösenord eller inloggning, pubdoc1 inte godkänd hos IT, eller krypterad anslutning krävs (sätt `DB_ENCRYPT=true`) |
 
