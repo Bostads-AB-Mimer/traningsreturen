@@ -266,8 +266,8 @@ avslutande `/` och utan `:443` när standardporten används.
 
 1. **Brandvägg:** port 8444 öppen mot pubdoc1 (IT). 8082 behövs bara om
    omdirigeringen från http ska nås utifrån.
-2. **Release:** Testa i dev, merga `develop` till `main`, tagga och pusha
-   (gjort för `v1.0.0`).
+2. **Release:** Testa i dev och merga `develop` till `main` (se
+   [Ny release till prod](#ny-release-till-prod)).
 3. **Keycloak (`auth.mimer.nu`, realm `onecore`):** klienten
    `traningsreturen-app` med redirect-URI och post logout redirect-URI
    `https://pubdoc1.mimer.nu:8444/*`, web origins `+`, klientrollerna
