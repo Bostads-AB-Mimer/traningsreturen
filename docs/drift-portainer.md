@@ -65,8 +65,9 @@ Certifikatet ligger i Docker-volymen `traningsreturen-certs`, som
 frontend-containern monterar skrivskyddat på `/etc/nginx/certs`. Det
 ligger aldrig i Git.
 
-**Vad som behövs från IT (för demomiljön Magnus):**
-- Ett certifikat som täcker serverns namn (`pubdoc1.mimer.nu`), i
+**Vad som behövs från IT (Magnus):**
+- Ett certifikat som täcker serverns namn (`pubdoc1.mimer.nu`). Mimer har ett
+  wildcard-certifikat för `*.mimer.nu`, som täcker alla namn under domänen. Det ska vara i
   **PEM-format med hela kedjan** (servercertifikat + intermediate i samma fil).
 - Privat nyckel **utan lösenord**, så att nginx kan starta utan att någon
   matar in något. Den skyddas i stället med filrättigheter (`chmod 600`).
@@ -308,5 +309,5 @@ Prod ska alltid peka på en tagg, aldrig på en branch, så att en push inte
 | Vad | Varför |
 | --- | --- |
 | Backup av prod-databasen | Schemalagd `BACKUP DATABASE` till en volym, som sedan kopieras bort från pubdoc1. Testa också en återläsning |
-| Eget domännamn, t.ex. `traningsreturen.mimer.nu` | Nytt certifikat i en ny volym (`CERTS_VOLUME`), sedan `PUBLIC_URL=https://traningsreturen.mimer.nu`, `HTTPS_PORT=443` och ny redirect-URI i Keycloak |
+| Eget domännamn, t.ex. `traningsreturen.mimer.nu` | DNS-post, sedan `PUBLIC_URL=https://traningsreturen.mimer.nu`, `HTTPS_PORT=443` och ny redirect-URI i Keycloak. Certifikatet är ett wildcard för `*.mimer.nu`, så samma certifikat fungerar |
 | Bevaka certifikatets utgångsdatum | Gäller båda miljöerna, eftersom de delar certifikat |
