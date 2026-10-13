@@ -1,12 +1,19 @@
-# Portainer deployment on pubdoc1: HTTPS on :8443, login via Mimer's shared
-# Keycloak (auth.dev.mimer.nu, realm onecore).
+# Portainer deployments on pubdoc1 (dev and prod use this same file).
+# The defaults are the dev values; the prod stack overrides them with stack
+# environment variables. See docs/drift-portainer.md.
 #
-# Before the first deploy, create the Docker volume traningsreturen-certs and
-# put the TLS cert chain (fullchain.pem) and unencrypted key (privkey.pem) in
-# it. The cert never lives in Git.
+# Before the first deploy, the certs volume (default traningsreturen-certs)
+# must exist and hold the TLS cert chain (fullchain.pem) and unencrypted key
+# (privkey.pem). The cert never lives in Git.
 #
 # Portainer stack environment variables:
-#   DB_PASSWORD  (required) SQL Server sa password, min 8 chars incl. upper/lower/digit
+#   DB_PASSWORD            (required) SQL Server sa password, min 8 chars incl. upper/lower/digit
+#   PUBLIC_URL             address users open, no trailing slash (dev: https://pubdoc1.mimer.nu:8443)
+#   HTTPS_PORT, HTTP_PORT  host ports for nginx 443/80 (dev: 8443, 8081)
+#   KEYCLOAK_URL           Keycloak base URL (dev: https://auth.dev.mimer.nu)
+#   KEYCLOAK_REALM         realm (default onecore)
+#   CERTS_VOLUME           external volume with the cert (default traningsreturen-certs)
+#   MSSQL_MEMORY_LIMIT_MB  SQL Server memory cap (default 2048)
 services:
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -15,6 +22,8 @@ services:
       ACCEPT_EULA: 'Y'
       MSSQL_SA_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
       MSSQL_PID: Express
+      # Dev and prod share pubdoc1; keep each instance from claiming all RAM.
+      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
     volumes:
       - mssql-data:/var/opt/mssql
     healthcheck:
@@ -37,8 +46,8 @@ services:
     environment:
       PORT: '4000'
       AUTH_MODE: oidc
-      OIDC_ISSUER: https://auth.dev.mimer.nu/realms/onecore
-      OIDC_JWKS_URI: https://auth.dev.mimer.nu/realms/onecore/protocol/openid-connect/certs
+      OIDC_ISSUER: ${KEYCLOAK_URL:-https://auth.dev.mimer.nu}/realms/${KEYCLOAK_REALM:-onecore}
+      OIDC_JWKS_URI: ${KEYCLOAK_URL:-https://auth.dev.mimer.nu}/realms/${KEYCLOAK_REALM:-onecore}/protocol/openid-connect/certs
       OIDC_CLIENT_ID: traningsreturen-app
       AUTO_PROVISION_USERS: 'true'
       DB_HOST: mssql
@@ -48,7 +57,8 @@ services:
       DB_NAME: traningsreturen
       FEATURE_EXPIRY: 'false'
       SEED_DEMO_DATA: 'false'
-      CORS_ORIGIN: https://pubdoc1.mimer.nu:8443
+      # Must equal the browser's origin exactly (no :443 for the default port).
+      CORS_ORIGIN: ${PUBLIC_URL:-https://pubdoc1.mimer.nu:8443}
     depends_on:
       mssql:
         condition: service_healthy
@@ -59,21 +69,24 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         NGINX_CONF: deploy/nginx.tls.conf
-        VITE_KEYCLOAK_URL: https://auth.dev.mimer.nu
-        VITE_KEYCLOAK_REALM: onecore
+        VITE_KEYCLOAK_URL: ${KEYCLOAK_URL:-https://auth.dev.mimer.nu}
+        VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-onecore}
         VITE_KEYCLOAK_CLIENT_ID: traningsreturen-app
     pull_policy: build
     restart: unless-stopped
+    environment:
+      # Target of the HTTP -> HTTPS redirect in deploy/nginx.tls.conf.
+      PUBLIC_URL: ${PUBLIC_URL:-https://pubdoc1.mimer.nu:8443}
     depends_on:
       - backend
     volumes:
-      - traningsreturen-certs:/etc/nginx/certs:ro
+      - certs:/etc/nginx/certs:ro
     ports:
-      # 8443 must match the redirect in deploy/nginx.tls.conf.
-      - '8443:443'
-      - '8081:80'
+      - '${HTTPS_PORT:-8443}:443'
+      - '${HTTP_PORT:-8081}:80'
 
 volumes:
   mssql-data:
-  traningsreturen-certs:
+  certs:
     external: true
+    name: ${CERTS_VOLUME:-traningsreturen-certs}

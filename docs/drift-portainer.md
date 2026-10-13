@@ -1,8 +1,9 @@
 # Drift i Portainer
 
-Så här körs Träningsreturen i Mimers Portainer-miljö: hur demomiljön är
-uppsatt, hur TLS-certifikatet hanteras och vad som behövs för en
-produktionsmiljö.
+Så här körs Träningsreturen i Mimers Portainer-miljö: hur dev- och
+produktionsmiljön är uppsatta, hur TLS-certifikatet hanteras och hur man
+driftsätter. Båda miljöerna körs på pubdoc1 med samma compose-fil. Dev
+använder filens standardvärden och prod skriver över dem med stackvariabler.
 
 ## Demomiljön i korthet
 
@@ -23,7 +24,7 @@ webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶
 ```
 
 - Port **8443** → nginx 443 (TLS). Port **8081** → nginx 80, som bara
-  skickar vidare till https.
+  skickar vidare till `PUBLIC_URL`.
 - Backend och databas exponeras inte utanför Docker-nätverket.
 - Portainer klonar repot och **bygger images på servern** vid varje
   redeploy (`pull_policy: build`). Inget container-register används.
@@ -33,7 +34,7 @@ webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶
 | Branch | Miljö | Stack |
 | --- | --- | --- |
 | `develop` | dev/demo, https://pubdoc1.mimer.nu:8443 | `traningsreturen-dev` |
-| `main` (taggar) | produktion (ej uppsatt än) | `traningsreturen-prod` |
+| `main` (taggar, t.ex. `v1.0.0`) | prod, https://pubdoc1.mimer.nu:8444 | `traningsreturen-prod` |
 
 Nytt arbete mergas till `develop` och testas i dev. När det är klart för
 produktion mergas `develop` till `main` och taggas.
@@ -218,29 +219,94 @@ Rör inte volymen `traningsreturen-certs`.
 
 Loggar: Portainer → Containers → klicka på containern → **Logs**.
 
-## Inför produktionsmiljön
+## Produktionsmiljön
 
-Demomiljöns compose-fil har adresser och portar inskrivna direkt. För
-produktion görs en egen fil (eller så parametriseras den befintliga) med
-egen stack, egna volymer och egen Keycloak-klient. Följande behöver
-bestämmas först:
-
-| Fråga | Varför | Vem |
+| | Dev | Prod |
 | --- | --- | --- |
-| Egen server eller samma som demo? | Separerar prod från demo och tester. Demo och prod på samma server kräver andra portar och volymnamn | IT/Drift |
-| Riktigt domännamn på port 443, t.ex. `traningsreturen.mimer.nu`? | Användarna slipper portnummer, och det fungerar bättre genom brandväggar och proxyer | IT/Drift |
-| Certifikat för det namnet, och vem förnyar det? | Samma krav som ovan: PEM med kedja, nyckel utan lösenord | IT/Drift |
-| Vilken Keycloak/realm? | Demo använder `auth.dev.mimer.nu`. Prod bör använda prod-instansen, med egen klient och egna redirect-URI:er | David / Keycloak-ansvarig |
-| Databas: SQL Server i stacken eller Mimers befintliga SQL Server? | En befintlig, driftad SQL Server ger backup och övervakning utan extra arbete. I stacken kräver det egen backup av volymen. Express har en gräns på 10 GB per databas | IT/Drift |
-| Backup och återläsning | Krav för produktion, oavsett vilket databasalternativ som väljs | IT/Drift |
-| Vem har åtkomst till stacken i Portainer? | Stackens miljövariabler innehåller databaslösenordet | IT/Drift |
+| Adress | https://pubdoc1.mimer.nu:8443 | https://pubdoc1.mimer.nu:8444 |
+| Stack | `traningsreturen-dev` | `traningsreturen-prod` |
+| Reference | `refs/heads/develop` | `refs/tags/vX.Y.Z` |
+| Keycloak | `auth.dev.mimer.nu`, realm `onecore` | `auth.mimer.nu`, realm `onecore` |
+| Portar (https/http) | 8443 / 8081 | 8444 / 8082 |
+| Databasvolym | `traningsreturen-dev_mssql-data` | `traningsreturen-prod_mssql-data` |
+| Certifikat | `traningsreturen-certs` | samma volym (samma servernamn) |
 
-Skillnader mot demo i konfigurationen:
+Prod körs på pubdoc1 med SQL Server i stacken. Appen är inte kritisk, men
+databasen ska ha backup (se [Kvar att göra](#kvar-att-göra)). Alla med
+åtkomst till Portainer kan hantera prod-stacken.
 
-- `SEED_DEMO_DATA` måste vara `false`. Seed-skriptet **tömmer alla tabeller**.
-- `AUTH_MODE=oidc`. Demoläget (`demo`) får aldrig användas i produktion,
-  eftersom vem som helst då kan utge sig för att vara admin.
-- `FEATURE_EXPIRY` sätts efter beslut om utgångsregeln.
-- Driftsätt från en tagg på `main` (t.ex. `v1.0.0`), inte från en branch, så att
-  prod inte uppdateras av misstag vid nästa push.
-- Starta med en tom databas, dvs. ny volym eller ny databas.
+### Variabler
+
+Sätts i prod-stackens **Environment variables**. Med **Advanced mode** kan
+alla klistras in på en gång:
+
+```
+PUBLIC_URL=https://pubdoc1.mimer.nu:8444
+HTTPS_PORT=8444
+HTTP_PORT=8082
+KEYCLOAK_URL=https://auth.mimer.nu
+KEYCLOAK_REALM=onecore
+DB_PASSWORD=<eget starkt lösenord, sparas i lösenordshanteraren>
+```
+
+Resten räknas ut i compose-filen: `CORS_ORIGIN` och omdirigeringen från
+http följer `PUBLIC_URL`, och `OIDC_ISSUER`/JWKS samt frontendens Keycloak
+följer `KEYCLOAK_URL` + `KEYCLOAK_REALM`. Det som är lika i båda miljöerna
+(`AUTH_MODE=oidc`, `SEED_DEMO_DATA=false`, klient-id med mera) ligger fast i
+filen. Ytterligare variabler som kan sättas: `CERTS_VOLUME` och
+`MSSQL_MEMORY_LIMIT_MB` (standard 2048, så att dev och prod inte tar allt
+minne på pubdoc1).
+
+`PUBLIC_URL` ska skrivas exakt som webbläsaren visar adressen, utan
+avslutande `/` och utan `:443` när standardporten används.
+
+### Sätta upp prod första gången
+
+1. **Brandvägg:** port 8444 öppen mot pubdoc1 (IT). 8082 behövs bara om
+   omdirigeringen från http ska nås utifrån.
+2. **Release:** Testa i dev, merga `develop` till `main`, tagga och pusha:
+   ```sh
+   git switch main && git merge --ff-only develop
+   git tag v1.0.0 && git push origin main v1.0.0
+   ```
+3. **Keycloak (`auth.mimer.nu`, realm `onecore`):** klienten
+   `traningsreturen-app` med redirect-URI och post logout redirect-URI
+   `https://pubdoc1.mimer.nu:8444/*`, web origins `+`, klientrollerna
+   `employee`/`manager`/`admin` mappade från AD-grupper, och mappers för
+   `jobTitle`, `officeLocation` och `managerId` (se
+   [README](../README.md#koppla-mot-mimers-befintliga-keycloak-ad)).
+4. **Stack:** Stacks → Add stack
+   - Name: `traningsreturen-prod`
+   - Repository, source `traningsreturen`, Reference `refs/tags/v1.0.0`
+     (skriv in den om den inte syns i listan)
+   - Compose path: `docker-compose.portainer.yml`
+   - Environment variables: enligt [Variabler](#variabler)
+   - **Deploy the stack**
+5. **Verifiera:** logga in med alla tre rollerna (de ska komma från
+   AD-grupperna), registrera ett pass, ansök om och attestera ett uttag,
+   kontrollera audit-loggen och att chefskopplingarna synkas från AD.
+6. **Rensa testdata** med [SQL-metoden](#tömma-data-via-sql-rekommenderas).
+   Byt `traningsreturen-dev-mssql-1` mot `traningsreturen-prod-mssql-1`.
+7. **Gå live:** En admin lägger in aktivitetstyperna, beslut tas om
+   `FEATURE_EXPIRY`, och de anställda får adressen. Konton skapas vid första
+   inloggning.
+
+### Ny release till prod
+
+1. Testa i dev (`develop`).
+2. Merga till `main`, tagga nästa version (t.ex. `v1.1.0`) och pusha taggen.
+3. **Ta backup av prod-databasen.** Migreringarna går bara framåt, så om man
+   går tillbaka till en äldre tagg måste databasen också återläsas.
+4. Stacks → `traningsreturen-prod` → **Editor**/Git-inställningarna: byt
+   Reference till den nya taggen → **Pull and redeploy**.
+
+Prod ska alltid peka på en tagg, aldrig på en branch, så att en push inte
+ändrar prod av misstag.
+
+### Kvar att göra
+
+| Vad | Varför |
+| --- | --- |
+| Backup av prod-databasen | Schemalagd `BACKUP DATABASE` till en volym, som sedan kopieras bort från pubdoc1. Testa också en återläsning |
+| Eget domännamn, t.ex. `traningsreturen.mimer.nu` | Nytt certifikat i en ny volym (`CERTS_VOLUME`), sedan `PUBLIC_URL=https://traningsreturen.mimer.nu`, `HTTPS_PORT=443` och ny redirect-URI i Keycloak |
+| Bevaka certifikatets utgångsdatum | Gäller båda miljöerna, eftersom de delar certifikat |

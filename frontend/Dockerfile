@@ -16,8 +16,10 @@ COPY frontend frontend
 RUN pnpm --filter @traningsreturen/frontend run build
 
 FROM nginx:1.27-alpine
-# The Portainer stack swaps in deploy/nginx.tls.conf.
+# The Portainer stack swaps in deploy/nginx.tls.conf. Copied as a template so
+# the nginx entrypoint fills in ${ENV_VARS} (e.g. PUBLIC_URL) at startup;
+# nginx's own $variables are left alone.
 ARG NGINX_CONF=deploy/nginx.conf
-COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
+COPY ${NGINX_CONF} /etc/nginx/templates/default.conf.template
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 EXPOSE 80
