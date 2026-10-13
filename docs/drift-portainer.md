@@ -49,10 +49,14 @@ vanlig http fungerar inte inloggningen alls.
 ### 1. Git-källa (Portainer → Sources)
 
 - Repository URL: `https://github.com/Bostads-AB-Mimer/traningsreturen.git`
-- Inloggning: GitHub-användarnamn + **fine-grained personal access token**
-  med åtkomst till enbart detta repo och behörigheten *Contents: Read-only*.
-- **Tokenen har ett utgångsdatum.** När den går ut kan Portainer inte
-  längre hämta koden. Förnya den i GitHub och uppdatera sourcen.
+- Authentication: **av**. Repot är publikt, så varken användarnamn eller
+  token behövs.
+- Om repot görs privat senare: slå på Authentication och använd en
+  fine-grained personal access token med åtkomst till enbart detta repo
+  (*Contents: Read-only*). Tokenen har ett utgångsdatum som måste bevakas.
+- Portainer sparar listan över brancher när sourcen skapas. Om en ny branch
+  inte syns: skriv in `refs/heads/<branch>` för hand, eller skapa sourcen på
+  nytt.
 
 ### 2. TLS-certifikat
 
