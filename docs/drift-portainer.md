@@ -101,6 +101,9 @@ ligger aldrig i Git.
    Kör aldrig `cat /certs/privkey.pem`.
 7. Lås nyckeln: `chmod 600 /certs/privkey.pem`
 8. Ta bort containern `cert-helper`. Volymen och filerna finns kvar.
+   `cert-helper` behövs bara igen när certifikatet ska förnyas. Kontrollera
+   att filerna finns via frontend-containern: Console → `/bin/sh` →
+   `ls -l /etc/nginx/certs`.
 9. **Radera certifikat- och nyckelfilerna från din dator**, töm
    papperskorgen och rensa urklippshistoriken (Win+V). Nyckeln har inget
    lösenord och får inte spridas.
