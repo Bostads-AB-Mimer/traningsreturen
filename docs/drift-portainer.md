@@ -135,9 +135,44 @@ nginx läser certifikatet bara när containern startar.
 
 Lägg in certifikatets utgångsdatum i kalendern med god marginal.
 
-### Nollställa databasen
+### Tömma data via SQL (rekommenderas)
 
-Tar bort **all** data. Schemat skapas om av migreringarna, och användare
+Tömmer alla registreringar och användare men behåller aktivitetstyperna.
+Stacken körs vidare och certifikatet påverkas inte. Användare skapas på nytt
+vid nästa inloggning, med roller från Keycloak.
+
+1. Containers → `traningsreturen-mssql-1` → **Console** → `/bin/bash` → Connect
+2. Starta sqlcmd. `-I` behövs, eftersom `users` har ett filtrerat index som
+   kräver `QUOTED_IDENTIFIER ON`:
+   ```sh
+   /opt/mssql-tools18/bin/sqlcmd -C -I -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d traningsreturen
+   ```
+3. Kör:
+   ```sql
+   SET XACT_ABORT ON;
+   BEGIN TRANSACTION;
+   DELETE FROM audit_log;
+   DELETE FROM delegations;
+   DELETE FROM corrections;
+   DELETE FROM leave_requests;
+   DELETE FROM workouts;
+   -- DELETE FROM activity_types;  -- även aktivitetstyperna (admin måste då lägga in nya)
+   UPDATE users SET manager_id = NULL, merged_into_user_id = NULL;
+   DELETE FROM users;
+   COMMIT;
+   GO
+   ```
+   Om något steg misslyckas rullas allt tillbaka.
+4. Kontrollera och avsluta:
+   ```sql
+   SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM workouts) AS workouts;
+   GO
+   exit
+   ```
+
+### Nollställa databasen helt
+
+Tar bort **all** data, också aktivitetstyperna. Schemat skapas om av migreringarna, och användare
 skapas på nytt vid första inloggning (`AUTO_PROVISION_USERS=true`).
 Rollerna kommer från Keycloak, så inget behöver läggas in för hand för att
 komma in. Manuellt inlagda aktivitetstyper, chefskopplingar och
