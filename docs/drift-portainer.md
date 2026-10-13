@@ -34,10 +34,11 @@ webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶
 | Branch | Miljö | Stack |
 | --- | --- | --- |
 | `develop` | dev/demo, https://pubdoc1.mimer.nu:8443 | `traningsreturen-dev` |
-| `main` (taggar, t.ex. `v1.0.0`) | prod, https://pubdoc1.mimer.nu:8444 | `traningsreturen-prod` |
+| `main` | prod, https://pubdoc1.mimer.nu:8444 | `traningsreturen-prod` |
 
 Nytt arbete mergas till `develop` och testas i dev. När det är klart för
-produktion mergas `develop` till `main` och taggas.
+produktion mergas `develop` till `main`, som taggas med versionsnumret.
+Ingen pushar direkt till `main`.
 
 ### Varför HTTPS är ett krav
 
@@ -226,7 +227,7 @@ Loggar: Portainer → Containers → klicka på containern → **Logs**.
 | --- | --- | --- |
 | Adress | https://pubdoc1.mimer.nu:8443 | https://pubdoc1.mimer.nu:8444 |
 | Stack | `traningsreturen-dev` | `traningsreturen-prod` |
-| Reference | `refs/heads/develop` | `refs/tags/vX.Y.Z` |
+| Reference | `refs/heads/develop` | `refs/heads/main` |
 | Keycloak | `auth.dev.mimer.nu`, realm `onecore` | `auth.mimer.nu`, realm `onecore` |
 | Portar (https/http) | 8443 / 8081 | 8444 / 8082 |
 | Databasvolym | `traningsreturen-dev_mssql-data` | `traningsreturen-prod_mssql-data` |
@@ -265,11 +266,8 @@ avslutande `/` och utan `:443` när standardporten används.
 
 1. **Brandvägg:** port 8444 öppen mot pubdoc1 (IT). 8082 behövs bara om
    omdirigeringen från http ska nås utifrån.
-2. **Release:** Testa i dev, merga `develop` till `main`, tagga och pusha:
-   ```sh
-   git switch main && git merge --ff-only develop
-   git tag v1.0.0 && git push origin main v1.0.0
-   ```
+2. **Release:** Testa i dev, merga `develop` till `main`, tagga och pusha
+   (gjort för `v1.0.0`).
 3. **Keycloak (`auth.mimer.nu`, realm `onecore`):** klienten
    `traningsreturen-app` med redirect-URI och post logout redirect-URI
    `https://pubdoc1.mimer.nu:8444/*`, web origins `+`, klientrollerna
@@ -278,8 +276,9 @@ avslutande `/` och utan `:443` när standardporten används.
    [README](../README.md#koppla-mot-mimers-befintliga-keycloak-ad)).
 4. **Stack:** Stacks → Add stack
    - Name: `traningsreturen-prod`
-   - Repository, source `traningsreturen`, Reference `refs/tags/v1.0.0`
-     (skriv in den om den inte syns i listan)
+   - Repository, source `traningsreturen`, Reference `refs/heads/main`
+   - Create a Webhook och polling: **av**. Prod uppdateras bara när någon
+     gör *Pull and redeploy*.
    - Compose path: `docker-compose.portainer.yml`
    - Environment variables: enligt [Variabler](#variabler)
    - **Deploy the stack**
@@ -295,14 +294,27 @@ avslutande `/` och utan `:443` när standardporten används.
 ### Ny release till prod
 
 1. Testa i dev (`develop`).
-2. Merga till `main`, tagga nästa version (t.ex. `v1.1.0`) och pusha taggen.
-3. **Ta backup av prod-databasen.** Migreringarna går bara framåt, så om man
-   går tillbaka till en äldre tagg måste databasen också återläsas.
-4. Stacks → `traningsreturen-prod` → **Editor**/Git-inställningarna: byt
-   Reference till den nya taggen → **Pull and redeploy**.
+2. **Ta backup av prod-databasen.** Migreringarna går bara framåt, så om man
+   går tillbaka till en äldre version måste databasen också återläsas.
+3. Merga till `main`, tagga nästa version och pusha:
+   ```sh
+   git switch main && git merge --ff-only develop
+   git tag -a v1.1.0 -m "Release 1.1.0" && git push origin main v1.1.0
+   git switch develop
+   ```
+4. Stacks → `traningsreturen-prod` → **Pull and redeploy**.
 
-Prod ska alltid peka på en tagg, aldrig på en branch, så att en push inte
-ändrar prod av misstag.
+Taggen ändrar inte vad prod kör, men den visar vad som var driftsatt när
+och används om man behöver gå tillbaka.
+
+**Gå tillbaka till en tidigare version:** Ändra stackens Reference
+tillfälligt till den förra taggen (t.ex. `refs/tags/v1.0.0`) → Pull and
+redeploy, och återläs databasen om migreringar har körts. Rätta sedan på
+`develop`, gör en ny release och byt tillbaka till `refs/heads/main`.
+
+**Skydda `main`:** Slå på branch protection i GitHub (Settings → Branches),
+så att ingen pushar direkt till `main` av misstag. Allt som hamnar på `main`
+går till prod vid nästa redeploy.
 
 ### Kvar att göra
 
