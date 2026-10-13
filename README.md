@@ -10,7 +10,7 @@ rättningsmöjlighet.
 | ------------- | ------------------------------ | -------------------- |
 | Lokal         | http://localhost:8081          | valfri               |
 | Dev/demo      | https://pubdoc1.mimer.nu:8443  | `develop`            |
-| Produktion    | https://pubdoc1.mimer.nu:8444  | `main`               |
+| Produktion    | https://traningsreturen.mimer.nu | `main`             |
 
 - [docs/drift-portainer.md](docs/drift-portainer.md): drift i Portainer,
   TLS-certifikat, Keycloak-inställningar, nollställning av data, felsökning

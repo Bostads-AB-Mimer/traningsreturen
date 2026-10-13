@@ -34,7 +34,7 @@ webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶
 | Branch | Miljö | Stack |
 | --- | --- | --- |
 | `develop` | dev/demo, https://pubdoc1.mimer.nu:8443 | `traningsreturen-dev` |
-| `main` | prod, https://pubdoc1.mimer.nu:8444 | `traningsreturen-prod` |
+| `main` | prod, https://traningsreturen.mimer.nu | `traningsreturen-prod` |
 
 Nytt arbete mergas till `develop` och testas i dev. När det är klart för
 produktion mergas `develop` till `main`, som taggas med versionsnumret.
@@ -225,15 +225,18 @@ Loggar: Portainer → Containers → klicka på containern → **Logs**.
 
 | | Dev | Prod |
 | --- | --- | --- |
-| Adress | https://pubdoc1.mimer.nu:8443 | https://pubdoc1.mimer.nu:8444 |
+| Adress | https://pubdoc1.mimer.nu:8443 | https://traningsreturen.mimer.nu |
 | Stack | `traningsreturen-dev` | `traningsreturen-prod` |
 | Reference | `refs/heads/develop` | `refs/heads/main` |
 | Keycloak | `auth.dev.mimer.nu`, realm `onecore` | `auth.mimer.nu`, realm `onecore` |
-| Portar (https/http) | 8443 / 8081 | 8444 / 8082 |
+| Portar (https/http) | 8443 / 8081 | 443 / 80 |
 | Databasvolym | `traningsreturen-dev_mssql-data` | `traningsreturen-prod_mssql-data` |
-| Certifikat | `traningsreturen-certs` | samma volym (samma servernamn) |
+| Certifikat | `traningsreturen-certs` | samma volym (wildcard `*.mimer.nu`) |
 
-Prod körs på pubdoc1 med SQL Server i stacken. Appen är inte kritisk, men
+Prod körs på pubdoc1 med SQL Server i stacken. Prod-stacken använder port
+443 och 80 på pubdoc1, så ingen annan app på servern kan publicera dem.
+Om fler appar behöver egna namn utan portnummer krävs en gemensam reverse
+proxy. Appen är inte kritisk, men
 databasen ska ha backup (se [Kvar att göra](#kvar-att-göra)). Alla med
 åtkomst till Portainer kan hantera prod-stacken.
 
@@ -243,9 +246,9 @@ Sätts i prod-stackens **Environment variables**. Med **Advanced mode** kan
 alla klistras in på en gång:
 
 ```
-PUBLIC_URL=https://pubdoc1.mimer.nu:8444
-HTTPS_PORT=8444
-HTTP_PORT=8082
+PUBLIC_URL=https://traningsreturen.mimer.nu
+HTTPS_PORT=443
+HTTP_PORT=80
 KEYCLOAK_URL=https://auth.mimer.nu
 KEYCLOAK_REALM=onecore
 DB_PASSWORD=<eget starkt lösenord, sparas i lösenordshanteraren>
@@ -264,13 +267,19 @@ avslutande `/` och utan `:443` när standardporten används.
 
 ### Sätta upp prod första gången
 
-1. **Brandvägg:** port 8444 öppen mot pubdoc1 (IT). 8082 behövs bara om
-   omdirigeringen från http ska nås utifrån.
+1. **DNS och brandvägg (IT):** `traningsreturen.mimer.nu` måste finnas i
+   **både intern och extern DNS** (Mimer har split DNS, och interna
+   användare frågar 172.31.20.151/153). Internt är alla portar öppna mot
+   pubdoc1. Externt släpps **bara 443** (till pubdoc1:443). Port 80 är
+   okrypterad och öppnas inte utåt. Internt används 80 bara för att
+   omdirigera till https. Servern behöver också kunna nå `auth.mimer.nu`, som från pubdoc1
+   blir den publika adressen. Det fungerar först när pubdoc1 har en extern
+   adress (beställt hos Quicknet i oktober 2026).
 2. **Release:** Testa i dev och merga `develop` till `main` (se
    [Ny release till prod](#ny-release-till-prod)).
 3. **Keycloak (`auth.mimer.nu`, realm `onecore`):** klienten
    `traningsreturen-app` med redirect-URI och post logout redirect-URI
-   `https://pubdoc1.mimer.nu:8444/*`, web origins `+`, klientrollerna
+   `https://traningsreturen.mimer.nu/*`, web origins `+`, klientrollerna
    `employee`/`manager`/`admin` mappade från AD-grupper, och mappers för
    `jobTitle`, `officeLocation` och `managerId` (se
    [README](../README.md#koppla-mot-mimers-befintliga-keycloak-ad)).
@@ -321,5 +330,4 @@ går till prod vid nästa redeploy.
 | Vad | Varför |
 | --- | --- |
 | Backup av prod-databasen | Schemalagd `BACKUP DATABASE` till en volym, som sedan kopieras bort från pubdoc1. Testa också en återläsning |
-| Eget domännamn, t.ex. `traningsreturen.mimer.nu` | DNS-post, sedan `PUBLIC_URL=https://traningsreturen.mimer.nu`, `HTTPS_PORT=443` och ny redirect-URI i Keycloak. Certifikatet är ett wildcard för `*.mimer.nu`, så samma certifikat fungerar |
 | Bevaka certifikatets utgångsdatum | Gäller båda miljöerna, eftersom de delar certifikat |
