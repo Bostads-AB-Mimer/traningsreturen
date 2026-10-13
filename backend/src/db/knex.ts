@@ -13,8 +13,8 @@ export function createKnex(): Knex {
       password: config.db.password,
       database: config.db.database,
       options: {
-        encrypt: false,
-        trustServerCertificate: true,
+        encrypt: config.db.encrypt,
+        trustServerCertificate: config.db.trustServerCertificate,
       },
     },
     pool: { min: 0, max: 10 },

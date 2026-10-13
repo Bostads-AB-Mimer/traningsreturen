@@ -46,6 +46,9 @@ export interface AppConfig {
     user: string
     password: string
     database: string
+    /** TLS to SQL Server; central servers may require it. */
+    encrypt: boolean
+    trustServerCertificate: boolean
   }
   rules: RulesConfig
   corsOrigin: string
@@ -76,6 +79,8 @@ export function loadConfig(): AppConfig {
       user: optional('DB_USER', 'sa'),
       password: required('DB_PASSWORD'),
       database: optional('DB_NAME', 'traningsreturen'),
+      encrypt: optionalBool('DB_ENCRYPT', false),
+      trustServerCertificate: optionalBool('DB_TRUST_SERVER_CERT', true),
     },
     rules: {
       returnSharePercent: optionalInt(

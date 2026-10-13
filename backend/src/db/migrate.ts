@@ -3,7 +3,12 @@ import { db } from './knex'
 import { config } from '../config'
 import { logger } from '../logger'
 
-/** Creates the application database on a fresh SQL Server instance. */
+/**
+ * Creates the application database on a fresh SQL Server instance. On a
+ * shared server the database is provisioned by IT and the app login may lack
+ * CREATE DATABASE (or even visibility of it in master), so failure here is
+ * only logged; migrations below fail clearly if the database really is missing.
+ */
 async function ensureDatabaseExists() {
   const master = knex({
     client: 'mssql',
@@ -13,7 +18,10 @@ async function ensureDatabaseExists() {
       user: config.db.user,
       password: config.db.password,
       database: 'master',
-      options: { encrypt: false, trustServerCertificate: true },
+      options: {
+        encrypt: config.db.encrypt,
+        trustServerCertificate: config.db.trustServerCertificate,
+      },
     },
   })
   try {
@@ -25,6 +33,8 @@ async function ensureDatabaseExists() {
        END`,
       [config.db.database, config.db.database],
     )
+  } catch (err) {
+    logger.warn({ err, database: config.db.database }, 'db.ensureDatabaseExists skipped')
   } finally {
     await master.destroy()
   }

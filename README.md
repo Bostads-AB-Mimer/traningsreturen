@@ -126,6 +126,7 @@ Se [.env.template](.env.template). De viktigaste:
 | Variabel                          | Beskrivning                                                           | Default               |
 | --------------------------------- | --------------------------------------------------------------------- | --------------------- |
 | `DB_HOST/PORT/USER/PASSWORD/NAME` | SQL Server-anslutning                                                 | –                     |
+| `DB_ENCRYPT` / `DB_TRUST_SERVER_CERT`| TLS mot SQL Server (central server kan kräva det)                     | `false` / `true`      |
 | `AUTH_MODE`                       | `oidc` (produktion) eller `demo`                                      | `oidc`                |
 | `OIDC_ISSUER`                     | Keycloak realm-URL                                                    | –                     |
 | `OIDC_JWKS_URI`                   | JWKS-endpoint (default härledd ur issuer)                             | –                     |

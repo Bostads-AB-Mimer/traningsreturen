@@ -1,4 +1,6 @@
-# Portainer deployments on pubdoc1 (dev and prod use this same file).
+# Portainer deployments on pubdoc1 (dev and prod use this same file). The
+# database lives on Mimer's central SQL Server (backed up there), one
+# database + login per environment, provisioned by IT.
 # The defaults are the dev values; the prod stack overrides them with stack
 # environment variables. See docs/drift-portainer.md.
 #
@@ -7,36 +9,17 @@
 # (privkey.pem). The cert never lives in Git.
 #
 # Portainer stack environment variables:
-#   DB_PASSWORD            (required) SQL Server sa password, min 8 chars incl. upper/lower/digit
+#   DB_PASSWORD            (required) password for the app's SQL login
+#   DB_HOST, DB_PORT       Mimer's central SQL Server (dev: 172.31.20.57, 1433)
+#   DB_NAME, DB_USER       database and SQL login (dev: traningsreturen-dev, svcdb-traningsreturen-dev)
+#   DB_ENCRYPT             TLS to SQL Server (default false)
+#   DB_TRUST_SERVER_CERT   accept the server's cert without CA validation (default true)
 #   PUBLIC_URL             address users open, no trailing slash (dev: https://pubdoc1.mimer.nu:8443)
 #   HTTPS_PORT, HTTP_PORT  host ports for nginx 443/80 (dev: 8443, 8081)
 #   KEYCLOAK_URL           Keycloak base URL (dev: https://auth.dev.mimer.nu)
 #   KEYCLOAK_REALM         realm (default onecore)
 #   CERTS_VOLUME           external volume with the cert (default traningsreturen-certs)
-#   MSSQL_MEMORY_LIMIT_MB  SQL Server memory cap (default 2048)
 services:
-  mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    restart: unless-stopped
-    environment:
-      ACCEPT_EULA: 'Y'
-      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
-      MSSQL_PID: Express
-      # Dev and prod share pubdoc1; keep each instance from claiming all RAM.
-      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
-    volumes:
-      - mssql-data:/var/opt/mssql
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-
   backend:
     build:
       context: .
@@ -50,18 +33,17 @@ services:
       OIDC_JWKS_URI: ${KEYCLOAK_URL:-https://auth.dev.mimer.nu}/realms/${KEYCLOAK_REALM:-onecore}/protocol/openid-connect/certs
       OIDC_CLIENT_ID: traningsreturen-app
       AUTO_PROVISION_USERS: 'true'
-      DB_HOST: mssql
-      DB_PORT: '1433'
-      DB_USER: sa
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: traningsreturen
+      DB_HOST: ${DB_HOST:-172.31.20.57}
+      DB_PORT: ${DB_PORT:-1433}
+      DB_USER: ${DB_USER:-svcdb-traningsreturen-dev}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-traningsreturen-dev}
+      DB_ENCRYPT: ${DB_ENCRYPT:-false}
+      DB_TRUST_SERVER_CERT: ${DB_TRUST_SERVER_CERT:-true}
       FEATURE_EXPIRY: 'false'
       SEED_DEMO_DATA: 'false'
       # Must equal the browser's origin exactly (no :443 for the default port).
       CORS_ORIGIN: ${PUBLIC_URL:-https://pubdoc1.mimer.nu:8443}
-    depends_on:
-      mssql:
-        condition: service_healthy
 
   frontend:
     build:
@@ -86,7 +68,6 @@ services:
       - '${HTTP_PORT:-8081}:80'
 
 volumes:
-  mssql-data:
   certs:
     external: true
     name: ${CERTS_VOLUME:-traningsreturen-certs}

@@ -14,18 +14,23 @@ använder filens standardvärden och prod skriver över dem med stackvariabler.
 | Stack | `traningsreturen-dev`, byggs från branchen `develop` |
 | Compose-fil | [`docker-compose.portainer.yml`](../docker-compose.portainer.yml) |
 | Inloggning | Mimers delade Keycloak `https://auth.dev.mimer.nu`, realm `onecore`, klient `traningsreturen-app` |
-| Containrar | `mssql` (SQL Server Express), `backend` (Node), `frontend` (nginx + React) |
-| Volymer | `traningsreturen-dev_mssql-data` (databasen), `traningsreturen-certs` (TLS) |
+| Containrar | `backend` (Node), `frontend` (nginx + React) |
+| Databas | Mimers centrala SQL Server `172.31.20.57`, databas `traningsreturen-dev`, inloggning `svcdb-traningsreturen-dev` |
+| Volymer | `traningsreturen-certs` (TLS) |
 
 ```
-webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶ backend ──▶ mssql
+webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶ backend ──▶ SQL Server (172.31.20.57)
      │                                                         │
      └──────── inloggning ──▶ auth.dev.mimer.nu ◀── JWKS ──────┘
 ```
 
 - Port **8443** → nginx 443 (TLS). Port **8081** → nginx 80, som bara
   skickar vidare till `PUBLIC_URL`.
-- Backend och databas exponeras inte utanför Docker-nätverket.
+- Backend exponeras inte utanför Docker-nätverket.
+- Databasen ligger på Mimers centrala SQL Server, som IT driftar och tar
+  backup på. Bara godkända maskiner (pubdoc1) släpps in. En databas och en
+  SQL-inloggning per miljö, med `db_owner` på sin egen databas. Appen skapar
+  och uppdaterar sina tabeller själv (migreringar) vid start.
 - Portainer klonar repot och **bygger images på servern** vid varje
   redeploy (`pull_policy: build`). Inget container-register används.
 
@@ -129,19 +134,21 @@ lokalt, se [README](../README.md#koppla-mot-mimers-befintliga-keycloak-ad).
 - Reference: `refs/heads/develop`
 - Compose path: `docker-compose.portainer.yml`
 - Enable relative path volumes: av
-- Environment variables: `DB_PASSWORD`, ett starkt lösenord (minst 8 tecken
-  med stora och små bokstäver samt siffror, annars startar inte SQL Server)
+- Environment variables: `DB_PASSWORD`, lösenordet till
+  `svcdb-traningsreturen-dev` (från IT). Övriga databasinställningar har
+  dev-värdena som standard i compose-filen.
 - **Deploy the stack**. Första bygget tar några minuter.
 
 Efter en redeploy kan sidan ge **HTTP 502** i upp till någon minut, medan
-backend väntar på databasen och kör migreringar. Ladda om sidan.
+backend kör migreringar. Ladda om sidan.
 
 ## Löpande drift
 
 ### Driftsätta en ny version
 
 Pusha (eller merga) till `develop` och gör sedan **Stacks → traningsreturen-dev → Pull and
-redeploy**. Images byggs om och databasen behålls.
+redeploy**. Images byggs om, och databasen påverkas bara av eventuella nya
+migreringar.
 
 ### Förnya certifikatet
 
@@ -156,17 +163,23 @@ nginx läser certifikatet bara när containern startar.
 
 Lägg in certifikatets utgångsdatum i kalendern med god marginal.
 
-### Tömma data via SQL (rekommenderas)
+### Tömma data via SQL
 
 Tömmer alla registreringar och användare men behåller aktivitetstyperna.
-Stacken körs vidare och certifikatet påverkas inte. Användare skapas på nytt
-vid nästa inloggning, med roller från Keycloak.
+Användare skapas på nytt vid nästa inloggning, med roller från Keycloak.
 
-1. Containers → `traningsreturen-dev-mssql-1` → **Console** → `/bin/bash` → Connect
-2. Starta sqlcmd. `-I` behövs, eftersom `users` har ett filtrerat index som
-   kräver `QUOTED_IDENTIFIER ON`:
+Bara pubdoc1 släpps in till SQL-servern, så kör sqlcmd från en tillfällig
+container där. Den som har åtkomst med SSMS kan köra samma SQL därifrån.
+
+1. Containers → **Add container**: name `sql-helper`, image
+   `mcr.microsoft.com/mssql/server:2022-latest` (innehåller sqlcmd),
+   Command `sleep infinity` → Deploy.
+2. `sql-helper` → **Console** → `/bin/bash` → Connect, och starta sqlcmd.
+   `-I` behövs, eftersom `users` har ett filtrerat index som kräver
+   `QUOTED_IDENTIFIER ON`. Utan `-P` frågar sqlcmd efter lösenordet, så att
+   det inte syns i konsolen:
    ```sh
-   /opt/mssql-tools18/bin/sqlcmd -C -I -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d traningsreturen
+   /opt/mssql-tools18/bin/sqlcmd -C -I -S 172.31.20.57 -U svcdb-traningsreturen-dev -d traningsreturen-dev
    ```
 3. Kör:
    ```sql
@@ -190,23 +203,13 @@ vid nästa inloggning, med roller från Keycloak.
    GO
    exit
    ```
+5. Ta bort containern `sql-helper`.
 
-### Nollställa databasen helt
+För prod: byt inloggning och databas mot prod-värdena.
 
-Tar bort **all** data, också aktivitetstyperna. Schemat skapas om av migreringarna, och användare
-skapas på nytt vid första inloggning (`AUTO_PROVISION_USERS=true`).
-Rollerna kommer från Keycloak, så inget behöver läggas in för hand för att
-komma in. Manuellt inlagda aktivitetstyper, chefskopplingar och
-registreringar försvinner.
-
-1. **Stacks → traningsreturen-dev → Stop this stack**
-2. **Volumes** → markera `traningsreturen-dev_mssql-data` → **Remove**. Om
-   Portainer säger att volymen används, ta först bort den stoppade
-   containern `traningsreturen-dev-mssql-1` under Containers.
-3. **Stacks → traningsreturen-dev → Start this stack** (eller *Pull and
-   redeploy*)
-
-Rör inte volymen `traningsreturen-certs`.
+Om databasen behöver återställas helt, så att även schemat skapas om, ber
+man IT återläsa en backup eller tömma databasen. Migreringarna bygger upp
+tabellerna igen vid nästa start.
 
 ### Felsökning
 
@@ -217,7 +220,7 @@ Rör inte volymen `traningsreturen-certs`.
 | HTTP 502 | Backend startar fortfarande eller har kraschat. Se loggen för backend |
 | Keycloak visar "Invalid redirect uri" | Adressen saknas på klienten i Keycloak |
 | Inloggning lyckas men API-anrop ger 401 | Fel issuer/realm, eller frontend byggd mot en annan Keycloak än den backend validerar mot |
-| SQL Server startar inte | `DB_PASSWORD` uppfyller inte lösenordskraven |
+| Backend startar om hela tiden, loggen visar `db.migrate` | Kommer inte åt SQL-servern: fel lösenord eller inloggning, pubdoc1 inte godkänd hos IT, eller krypterad anslutning krävs (sätt `DB_ENCRYPT=true`) |
 
 Loggar: Portainer → Containers → klicka på containern → **Logs**.
 
@@ -230,14 +233,16 @@ Loggar: Portainer → Containers → klicka på containern → **Logs**.
 | Reference | `refs/heads/develop` | `refs/heads/main` |
 | Keycloak | `auth.dev.mimer.nu`, realm `onecore` | `auth.mimer.nu`, realm `onecore` |
 | Portar (https/http) | 8443 / 8081 | 443 / 80 |
-| Databasvolym | `traningsreturen-dev_mssql-data` | `traningsreturen-prod_mssql-data` |
+| Databas | `traningsreturen-dev` | `traningsreturen-prod` (beställs) |
+| SQL-inloggning | `svcdb-traningsreturen-dev` | `svcdb-traningsreturen-prod` (beställs) |
 | Certifikat | `traningsreturen-certs` | samma volym (wildcard `*.mimer.nu`) |
 
-Prod körs på pubdoc1 med SQL Server i stacken. Prod-stacken använder port
+Prod körs på pubdoc1, och databasen ligger på samma centrala SQL Server
+som dev. Prod-stacken använder port
 443 och 80 på pubdoc1, så ingen annan app på servern kan publicera dem.
 Om fler appar behöver egna namn utan portnummer krävs en gemensam reverse
 proxy. Appen är inte kritisk, men
-databasen ska ha backup (se [Kvar att göra](#kvar-att-göra)). Alla med
+databasen ingår i IT:s backup av SQL-servern. Alla med
 åtkomst till Portainer kan hantera prod-stacken.
 
 ### Variabler
@@ -251,16 +256,19 @@ HTTPS_PORT=443
 HTTP_PORT=80
 KEYCLOAK_URL=https://auth.mimer.nu
 KEYCLOAK_REALM=onecore
-DB_PASSWORD=<eget starkt lösenord, sparas i lösenordshanteraren>
+DB_NAME=traningsreturen-prod
+DB_USER=svcdb-traningsreturen-prod
+DB_PASSWORD=<prod-inloggningens lösenord från IT>
 ```
+
+Databasnamn och inloggning för prod är preliminära tills IT har skapat dem.
 
 Resten räknas ut i compose-filen: `CORS_ORIGIN` och omdirigeringen från
 http följer `PUBLIC_URL`, och `OIDC_ISSUER`/JWKS samt frontendens Keycloak
 följer `KEYCLOAK_URL` + `KEYCLOAK_REALM`. Det som är lika i båda miljöerna
 (`AUTH_MODE=oidc`, `SEED_DEMO_DATA=false`, klient-id med mera) ligger fast i
-filen. Ytterligare variabler som kan sättas: `CERTS_VOLUME` och
-`MSSQL_MEMORY_LIMIT_MB` (standard 2048, så att dev och prod inte tar allt
-minne på pubdoc1).
+filen. Ytterligare variabler som kan sättas: `CERTS_VOLUME`, `DB_HOST`/`DB_PORT`
+(standard `172.31.20.57`/`1433`), `DB_ENCRYPT` och `DB_TRUST_SERVER_CERT`.
 
 `PUBLIC_URL` ska skrivas exakt som webbläsaren visar adressen, utan
 avslutande `/` och utan `:443` när standardporten används.
@@ -275,15 +283,17 @@ avslutande `/` och utan `:443` när standardporten används.
    omdirigera till https. Servern behöver också kunna nå `auth.mimer.nu`, som från pubdoc1
    blir den publika adressen. Det fungerar först när pubdoc1 har en extern
    adress (beställt hos Quicknet i oktober 2026).
-2. **Release:** Testa i dev och merga `develop` till `main` (se
+2. **Databas (IT):** databasen `traningsreturen-prod` och inloggningen
+   `svcdb-traningsreturen-prod` (`db_owner` på databasen) på 172.31.20.57.
+3. **Release:** Testa i dev och merga `develop` till `main` (se
    [Ny release till prod](#ny-release-till-prod)).
-3. **Keycloak (`auth.mimer.nu`, realm `onecore`):** klienten
+4. **Keycloak (`auth.mimer.nu`, realm `onecore`):** klienten
    `traningsreturen-app` med redirect-URI och post logout redirect-URI
    `https://traningsreturen.mimer.nu/*`, web origins `+`, klientrollerna
    `employee`/`manager`/`admin` mappade från AD-grupper, och mappers för
    `jobTitle`, `officeLocation` och `managerId` (se
    [README](../README.md#koppla-mot-mimers-befintliga-keycloak-ad)).
-4. **Stack:** Stacks → Add stack
+5. **Stack:** Stacks → Add stack
    - Name: `traningsreturen-prod`
    - Repository, source `traningsreturen`, Reference `refs/heads/main`
    - Create a Webhook och polling: **av**. Prod uppdateras bara när någon
@@ -291,20 +301,21 @@ avslutande `/` och utan `:443` när standardporten används.
    - Compose path: `docker-compose.portainer.yml`
    - Environment variables: enligt [Variabler](#variabler)
    - **Deploy the stack**
-5. **Verifiera:** logga in med alla tre rollerna (de ska komma från
+6. **Verifiera:** logga in med alla tre rollerna (de ska komma från
    AD-grupperna), registrera ett pass, ansök om och attestera ett uttag,
    kontrollera audit-loggen och att chefskopplingarna synkas från AD.
-6. **Rensa testdata** med [SQL-metoden](#tömma-data-via-sql-rekommenderas).
-   Byt `traningsreturen-dev-mssql-1` mot `traningsreturen-prod-mssql-1`.
-7. **Gå live:** En admin lägger in aktivitetstyperna, beslut tas om
+7. **Rensa testdata** med [SQL-metoden](#tömma-data-via-sql), med prod-inloggningen och
+   prod-databasen.
+8. **Gå live:** En admin lägger in aktivitetstyperna, beslut tas om
    `FEATURE_EXPIRY`, och de anställda får adressen. Konton skapas vid första
    inloggning.
 
 ### Ny release till prod
 
 1. Testa i dev (`develop`).
-2. **Ta backup av prod-databasen.** Migreringarna går bara framåt, så om man
-   går tillbaka till en äldre version måste databasen också återläsas.
+2. **Se till att det finns en färsk backup av prod-databasen** (IT:s backup
+   av SQL-servern). Migreringarna går bara framåt, så om man går tillbaka
+   till en äldre version måste databasen också återläsas.
 3. Merga till `main`, tagga nästa version och pusha:
    ```sh
    git switch main && git merge --ff-only develop
@@ -329,5 +340,6 @@ går till prod vid nästa redeploy.
 
 | Vad | Varför |
 | --- | --- |
-| Backup av prod-databasen | Schemalagd `BACKUP DATABASE` till en volym, som sedan kopieras bort från pubdoc1. Testa också en återläsning |
+| Prod-databas och prod-inloggning | Beställs hos IT (Magnus) när dev fungerar mot den centrala SQL-servern |
+| Ta bort de gamla SQL-volymerna | `traningsreturen-dev_mssql-data` och `traningsreturen-prod_mssql-data` används inte längre när stackarna har driftsatts om |
 | Bevaka certifikatets utgångsdatum | Gäller båda miljöerna, eftersom de delar certifikat |
