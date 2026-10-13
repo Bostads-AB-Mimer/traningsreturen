@@ -10,11 +10,11 @@ produktionsmiljö.
 | --- | --- |
 | Adress | https://pubdoc1.mimer.nu:8443 |
 | Server | `pubdoc1` (Docker standalone, hanteras i Portainer) |
-| Stack | `traningsreturen`, byggs från Git |
+| Stack | `traningsreturen-dev`, byggs från branchen `develop` |
 | Compose-fil | [`docker-compose.portainer.yml`](../docker-compose.portainer.yml) |
 | Inloggning | Mimers delade Keycloak `https://auth.dev.mimer.nu`, realm `onecore`, klient `traningsreturen-app` |
 | Containrar | `mssql` (SQL Server Express), `backend` (Node), `frontend` (nginx + React) |
-| Volymer | `traningsreturen_mssql-data` (databasen), `traningsreturen-certs` (TLS) |
+| Volymer | `traningsreturen-dev_mssql-data` (databasen), `traningsreturen-certs` (TLS) |
 
 ```
 webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶ backend ──▶ mssql
@@ -27,6 +27,16 @@ webbläsare ──https :8443──▶ frontend (nginx, TLS) ──/api──▶
 - Backend och databas exponeras inte utanför Docker-nätverket.
 - Portainer klonar repot och **bygger images på servern** vid varje
   redeploy (`pull_policy: build`). Inget container-register används.
+
+### Brancher och miljöer
+
+| Branch | Miljö | Stack |
+| --- | --- | --- |
+| `develop` | dev/demo, https://pubdoc1.mimer.nu:8443 | `traningsreturen-dev` |
+| `main` (taggar) | produktion (ej uppsatt än) | `traningsreturen-prod` |
+
+Nytt arbete mergas till `develop` och testas i dev. När det är klart för
+produktion mergas `develop` till `main` och taggas.
 
 ### Varför HTTPS är ett krav
 
@@ -105,7 +115,8 @@ lokalt, se [README](../README.md#koppla-mot-mimers-befintliga-keycloak-ad).
 ### 4. Stack (Portainer → Stacks → Add stack)
 
 - Build method: **Repository**, source `traningsreturen`
-- Reference: `refs/heads/main`
+- Name: `traningsreturen-dev`
+- Reference: `refs/heads/develop`
 - Compose path: `docker-compose.portainer.yml`
 - Enable relative path volumes: av
 - Environment variables: `DB_PASSWORD`, ett starkt lösenord (minst 8 tecken
@@ -119,7 +130,7 @@ backend väntar på databasen och kör migreringar. Ladda om sidan.
 
 ### Driftsätta en ny version
 
-Pusha till `main` och gör sedan **Stacks → traningsreturen → Pull and
+Pusha (eller merga) till `develop` och gör sedan **Stacks → traningsreturen-dev → Pull and
 redeploy**. Images byggs om och databasen behålls.
 
 ### Förnya certifikatet
@@ -128,7 +139,7 @@ nginx läser certifikatet bara när containern startar.
 
 1. Gör om steg 2–8 under [Lägga in certifikatet](#2-tls-certifikat).
    `cat >` skriver över de gamla filerna.
-2. Starta om containern `traningsreturen-frontend-1`
+2. Starta om containern `traningsreturen-dev-frontend-1`
    (Containers → markera → Restart).
 3. Kontrollera i webbläsaren (hänglåset → certifikat) att det nya
    utgångsdatumet syns.
@@ -141,7 +152,7 @@ Tömmer alla registreringar och användare men behåller aktivitetstyperna.
 Stacken körs vidare och certifikatet påverkas inte. Användare skapas på nytt
 vid nästa inloggning, med roller från Keycloak.
 
-1. Containers → `traningsreturen-mssql-1` → **Console** → `/bin/bash` → Connect
+1. Containers → `traningsreturen-dev-mssql-1` → **Console** → `/bin/bash` → Connect
 2. Starta sqlcmd. `-I` behövs, eftersom `users` har ett filtrerat index som
    kräver `QUOTED_IDENTIFIER ON`:
    ```sh
@@ -178,11 +189,11 @@ Rollerna kommer från Keycloak, så inget behöver läggas in för hand för att
 komma in. Manuellt inlagda aktivitetstyper, chefskopplingar och
 registreringar försvinner.
 
-1. **Stacks → traningsreturen → Stop this stack**
-2. **Volumes** → markera `traningsreturen_mssql-data` → **Remove**. Om
+1. **Stacks → traningsreturen-dev → Stop this stack**
+2. **Volumes** → markera `traningsreturen-dev_mssql-data` → **Remove**. Om
    Portainer säger att volymen används, ta först bort den stoppade
-   containern `traningsreturen-mssql-1` under Containers.
-3. **Stacks → traningsreturen → Start this stack** (eller *Pull and
+   containern `traningsreturen-dev-mssql-1` under Containers.
+3. **Stacks → traningsreturen-dev → Start this stack** (eller *Pull and
    redeploy*)
 
 Rör inte volymen `traningsreturen-certs`.
@@ -223,6 +234,6 @@ Skillnader mot demo i konfigurationen:
 - `AUTH_MODE=oidc`. Demoläget (`demo`) får aldrig användas i produktion,
   eftersom vem som helst då kan utge sig för att vara admin.
 - `FEATURE_EXPIRY` sätts efter beslut om utgångsregeln.
-- Driftsätt från en tagg eller release-branch i stället för `main`, så att
+- Driftsätt från en tagg på `main` (t.ex. `v1.0.0`), inte från en branch, så att
   prod inte uppdateras av misstag vid nästa push.
 - Starta med en tom databas, dvs. ny volym eller ny databas.
