@@ -183,3 +183,58 @@ textarea:focus {
 .hov-amber-soft:hover {
   background: #ffe9be !important;
 }
+
+/* Header brand: Mimer logo + app name. Scales down on narrow screens. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.brand-logo {
+  height: 26px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+.brand-divider {
+  width: 1px;
+  height: 26px;
+  background: #e6d6df;
+  flex-shrink: 0;
+}
+.brand-app {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.brand-title {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .brand {
+    gap: 10px;
+  }
+  .brand-logo,
+  .brand-divider {
+    height: 20px;
+  }
+  .brand-app {
+    gap: 6px;
+  }
+  .brand-app svg {
+    width: 22px;
+    height: 22px;
+  }
+  .brand-title {
+    font-size: 15px;
+  }
+  .user-meta {
+    display: none;
+  }
+}

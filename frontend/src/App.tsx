@@ -13,6 +13,7 @@ import {
   Team,
 } from './api/types'
 import { UiRole, useAuth } from './auth/AuthProvider'
+import { RunnerMark } from './components/RunnerMark'
 import { useApi } from './hooks/useApi'
 import { initials } from './format'
 import { segmentStyle, tabStyle } from './theme'
@@ -270,45 +271,12 @@ export function App() {
             flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 13,
-                background: '#E0007A',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: 19,
-              }}
-            >
-              T
-            </div>
-            <div>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 17,
-                  letterSpacing: '-0.01em',
-                  lineHeight: 1.15,
-                }}
-              >
-                Träningsreturen
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: '#A18F9B',
-                  fontWeight: 700,
-                  letterSpacing: '0.07em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Bostads AB Mimer
-              </div>
+          <div className="brand">
+            <img src="/mimer-logo.png" alt="Mimer" className="brand-logo" />
+            <span className="brand-divider" aria-hidden="true" />
+            <div className="brand-app">
+              <RunnerMark size={28} />
+              <div className="brand-title">Träningsreturen</div>
             </div>
           </div>
           <div style={{ flex: 1 }} />
@@ -347,7 +315,7 @@ export function App() {
             >
               {initials(me.name)}
             </div>
-            <div>
+            <div className="user-meta">
               <div style={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.2 }}>{me.name}</div>
               <div style={{ fontSize: 12, color: '#9A8694', lineHeight: 1.2 }}>{me.title}</div>
             </div>
