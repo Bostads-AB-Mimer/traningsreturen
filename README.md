@@ -4,6 +4,18 @@ Webbapp för Bostads AB Mimer: anställda registrerar pulshöjande träning och 
 20 % av tiden som ledighet. Chefer attesterar uttag, admin har full insyn och
 rättningsmöjlighet.
 
+## Miljöer och dokumentation
+
+| Miljö         | Adress                         | Branch               |
+| ------------- | ------------------------------ | -------------------- |
+| Lokal         | http://localhost:8081          | valfri               |
+| Dev/demo      | https://pubdoc1.mimer.nu:8443  | `develop`            |
+| Produktion    | ej uppsatt än                  | `main` (taggar)      |
+
+- [docs/drift-portainer.md](docs/drift-portainer.md): drift i Portainer,
+  TLS-certifikat, Keycloak-inställningar, nollställning av data, felsökning
+  och förberedelser inför produktion.
+
 ## Arkitektur
 
 | Del      | Teknik                                                                |
@@ -31,8 +43,8 @@ rättningsmöjlighet.
 
 ## Start från ren miljö (Docker)
 
-Demomiljön i Portainer (https://pubdoc1.mimer.nu:8443), certifikat och
-produktionsplanering beskrivs i [docs/drift-portainer.md](docs/drift-portainer.md).
+Det här avsnittet gäller lokal körning. För dev-miljön i Portainer, se
+[docs/drift-portainer.md](docs/drift-portainer.md).
 
 ```bash
 cp .env.template .env        # sätt DB_PASSWORD och KEYCLOAK_ADMIN_PASSWORD
