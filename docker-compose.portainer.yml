@@ -19,6 +19,7 @@
 #   KEYCLOAK_URL           Keycloak base URL (dev: https://auth.dev.mimer.nu)
 #   KEYCLOAK_REALM         realm (default onecore)
 #   CERTS_VOLUME           external volume with the cert (default traningsreturen-certs)
+#   DNS_1, DNS_2           DNS servers for the backend (default Mimer's internal 172.31.20.151/153)
 services:
   backend:
     build:
@@ -26,6 +27,12 @@ services:
       dockerfile: backend/Dockerfile
     pull_policy: build
     restart: unless-stopped
+    # Mimer's internal DNS (split DNS): pubdoc1's own resolver gives the public
+    # address of auth.mimer.nu, which can't be reached from inside the network,
+    # so the backend's JWKS fetch timed out. Internal DNS gives 192.168.1.65-67.
+    dns:
+      - ${DNS_1:-172.31.20.151}
+      - ${DNS_2:-172.31.20.153}
     environment:
       PORT: '4000'
       AUTH_MODE: oidc
