@@ -31,6 +31,9 @@ rättningsmöjlighet.
 
 ## Start från ren miljö (Docker)
 
+Demomiljön i Portainer (https://pubdoc1.mimer.nu:8443), certifikat och
+produktionsplanering beskrivs i [docs/drift-portainer.md](docs/drift-portainer.md).
+
 ```bash
 cp .env.template .env        # sätt DB_PASSWORD och KEYCLOAK_ADMIN_PASSWORD
 docker compose up --build
